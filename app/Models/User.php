@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 
@@ -27,17 +29,34 @@ class User extends Authenticatable implements FilamentUser {
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
+    protected function casts(): array {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
 
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return $panel->getId() === 'admin'
-            && $this->user_type === 'Admin';
+    public function canAccessPanel(Panel $panel): bool {
+        if ($panel->getId() === 'admin') {
+            return $this->user_type === 'Admin';
+        }
+
+        if ($panel->getId() === 'portal') {
+            return in_array($this->user_type, ['Student', 'Faculty'], true);
+        }
+
+        return false;
+    }
+
+    public function reservations(): HasMany {
+        return $this->hasMany(Reservation::class);
+    }
+
+    public function reservationLogs(): HasMany {
+        return $this->hasMany(ReservationLog::class);
+    }
+
+    public function authorizedUserId(): HasOne {
+        return $this->hasOne(AuthorizedUserId::class, 'claimed_by');
     }
 }
