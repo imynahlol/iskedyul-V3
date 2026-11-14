@@ -5,6 +5,7 @@ namespace App\Filament\Portal\Pages;
 use App\Models\Building;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Models\SystemSetting;
 use App\Services\ReservationService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -16,18 +17,13 @@ class RoomAvailability extends Page {
 
     protected static ?string $title = 'Room Availability';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'Room Availability';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
 
     public $building_id = '';
-
     public $room_id = '';
-
     public $reservation_date = '';
-
     public $start_time = '';
-
     public $end_time = '';
-
     public $purpose = '';
 
     public function updatedBuildingId(): void {
@@ -58,14 +54,39 @@ class RoomAvailability extends Page {
                 ->all();
         }
 
+        $settings = SystemSetting::whereIn('key', [
+            'min_duration',
+            'max_duration',
+            'advance_days',
+            'opening_time',
+            'closing_time',
+        ])->pluck('value', 'key');
+
         return [
             'buildings' => $buildings,
             'rooms' => $rooms,
             'reservedRoomIds' => $reservedRoomIds,
+            'minDuration' => (int) ($settings['min_duration'] ?? 1),
+            'maxDuration' => (int) ($settings['max_duration'] ?? 4),
+            'advanceDays' => (int) ($settings['advance_days'] ?? 30),
+            'openingTime' => $settings['opening_time'] ?? '07:00',
+            'closingTime' => $settings['closing_time'] ?? '21:00',
+            'earliestDate' => now()->toDateString(),
+            'latestDate' => now()->addDays((int) ($settings['advance_days'] ?? 30))->toDateString(),
         ];
     }
 
     public function submitReservation(): void {
+        $settings = SystemSetting::whereIn('key', [
+            'min_duration',
+            'max_duration',
+            'advance_days',
+            'opening_time',
+            'closing_time',
+        ])->pluck('value', 'key');
+
+        $advanceDays = (int) ($settings['advance_days'] ?? 30);
+
         $validator = Validator::make([
             'building_id' => $this->building_id,
             'room_id' => $this->room_id,
@@ -76,7 +97,12 @@ class RoomAvailability extends Page {
         ], [
             'building_id' => ['required', 'exists:buildings,id'],
             'room_id' => ['required', 'exists:rooms,id'],
-            'reservation_date' => ['required', 'date', 'after_or_equal:today'],
+            'reservation_date' => [
+                'required',
+                'date',
+                'after_or_equal:today',
+                'before_or_equal:' . now()->addDays($advanceDays)->toDateString(),
+            ],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'purpose' => ['required', 'string', 'max:1000'],

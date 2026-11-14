@@ -71,7 +71,8 @@ class AuthorizedUserIdsTable {
                     ->falseLabel('Available'),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn ($record): bool => $record->claimed_by === null),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([]),

@@ -13,7 +13,7 @@ class AuthorizedUserIdsImport implements ToCollection, WithHeadingRow {
     public int $skipped = 0;
     public array $errors = [];
 
-    public function collection(Collection $rows) {
+    public function collection(Collection $rows): void {
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
 

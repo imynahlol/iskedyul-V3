@@ -32,10 +32,9 @@ class BuildingResource extends Resource
         return BuildingsTable::configure($table);
     }
 
-    public static function getRelations(): array
-    {
+    public static function getRelations(): array {
         return [
-            //
+            \App\Filament\Resources\Buildings\RelationManagers\RoomsRelationManager::class,
         ];
     }
 

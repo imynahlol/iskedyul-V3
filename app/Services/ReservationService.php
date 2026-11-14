@@ -5,79 +5,73 @@ namespace App\Services;
 use App\Models\Reservation;
 use App\Models\ReservationLog;
 use App\Models\Room;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ReservationService {
-    public function create(array $data, int $userId): Reservation {
-        return DB::transaction(function () use ($data, $userId) {
-            $room = Room::with('building')
-                ->lockForUpdate()
-                ->findOrFail($data['room_id']);
+    public function create(array $data, int $userId, ?int $actorId = null): Reservation {
+    $actorId = $actorId ?? $userId;
 
-            if ($room->status !== 'Active' || $room->building->status !== 'Active') {
-                throw ValidationException::withMessages([
-                    'room_id' => 'This room or its building is currently inactive.',
-                ]);
-            }
+    return DB::transaction(function () use ($data, $userId, $actorId) {
+        $room = Room::with('building')
+            ->lockForUpdate()
+            ->findOrFail($data['room_id']);
 
-            if (strtotime($data['reservation_date']) < strtotime(now()->toDateString())) {
-                throw ValidationException::withMessages([
-                    'reservation_date' => 'Past reservation dates are not allowed.',
-                ]);
-            }
-
-            $start = $data['start_time'];
-            $end = $data['end_time'];
-
-            if ($end <= $start) {
-                throw ValidationException::withMessages([
-                    'end_time' => 'The end time must be later than the start time.',
-                ]);
-            }
-
-            $conflict = Reservation::where('room_id', $room->id)
-                ->whereDate('reservation_date', $data['reservation_date'])
-                ->where('status', 'Reserved')
-                ->where('start_time', '<', $end)
-                ->where('end_time', '>', $start)
-                ->exists();
-
-            if ($conflict) {
-                throw ValidationException::withMessages([
-                    'start_time' => 'This room is already reserved during the selected time.',
-                ]);
-            }
-
-            $duration = (
-                strtotime($end) - strtotime($start)
-            ) / 3600;
-
-            $reservation = Reservation::create([
-                'reservation_number' => $this->generateReservationNumber(),
-                'user_id' => $userId,
-                'building_id' => $room->building_id,
-                'room_id' => $room->id,
-                'reservation_date' => $data['reservation_date'],
-                'start_time' => $start,
-                'end_time' => $end,
-                'purpose' => $data['purpose'],
-                'status' => 'Reserved',
-                'duration_hours' => $duration,
+        if ($room->status !== 'Active' || $room->building->status !== 'Active') {
+            throw ValidationException::withMessages([
+                'room_id' => 'This room or its building is currently inactive.',
             ]);
+        }
 
-            ReservationLog::create([
-                'reservation_id' => $reservation->id,
-                'user_id' => $userId,
-                'action' => 'Created',
-                'previous_values' => null,
-                'new_values' => $reservation->toArray(),
+        $start = $data['start_time'];
+        $end = $data['end_time'];
+
+        $this->validateReservationRules(
+            $data['reservation_date'],
+            $start,
+            $end
+        );
+
+        $conflict = Reservation::where('room_id', $room->id)
+            ->whereDate('reservation_date', $data['reservation_date'])
+            ->where('status', 'Reserved')
+            ->where('start_time', '<', $end)
+            ->where('end_time', '>', $start)
+            ->exists();
+
+        if ($conflict) {
+            throw ValidationException::withMessages([
+                'start_time' => 'This room is already reserved during the selected time.',
             ]);
+        }
 
-            return $reservation;
-        });
-    }
+        $duration = (strtotime($end) - strtotime($start)) / 3600;
 
+        $reservation = Reservation::create([
+            'reservation_number' => $this->generateReservationNumber(),
+            'user_id' => $userId,
+            'building_id' => $room->building_id,
+            'room_id' => $room->id,
+            'reservation_date' => $data['reservation_date'],
+            'start_time' => $start,
+            'end_time' => $end,
+            'purpose' => $data['purpose'],
+            'status' => 'Reserved',
+            'duration_hours' => $duration,
+        ]);
+
+        ReservationLog::create([
+            'reservation_id' => $reservation->id,
+            'user_id' => $actorId,
+            'action' => 'Created',
+            'previous_values' => null,
+            'new_values' => $reservation->toArray(),
+        ]);
+
+        return $reservation;
+    });
+}
 
     public function update(Reservation $reservation, array $data, int $actorId): Reservation {
         return DB::transaction(function () use ($reservation, $data, $actorId) {
@@ -110,17 +104,11 @@ class ReservationService {
             $start = $data['start_time'];
             $end = $data['end_time'];
 
-            if ($end <= $start) {
-                throw ValidationException::withMessages([
-                    'end_time' => 'The end time must be later than the start time.',
-                ]);
-            }
-
-            if (strtotime($data['reservation_date']) < strtotime(now()->toDateString())) {
-                throw ValidationException::withMessages([
-                    'reservation_date' => 'Past dates are not allowed.',
-                ]);
-            }
+            $this->validateReservationRules(
+                $data['reservation_date'],
+                $start,
+                $end
+            );
 
             $conflict = Reservation::where('room_id', $room->id)
                 ->whereDate('reservation_date', $data['reservation_date'])
@@ -139,7 +127,6 @@ class ReservationService {
             $previousValues = $reservation->toArray();
 
             $reservation->update([
-                'user_id' => $data['user_id'],
                 'building_id' => $room->building_id,
                 'room_id' => $room->id,
                 'reservation_date' => $data['reservation_date'],
@@ -159,6 +146,67 @@ class ReservationService {
 
             return $reservation->fresh();
         });
+    }
+
+    private function validateReservationRules(
+        string $date,
+        string $start,
+        string $end
+    ): void {
+        $settings = SystemSetting::whereIn('key', [
+            'min_duration',
+            'max_duration',
+            'advance_days',
+            'opening_time',
+            'closing_time',
+        ])->pluck('value', 'key');
+
+        $minDuration = (float) ($settings['min_duration'] ?? 1);
+        $maxDuration = (float) ($settings['max_duration'] ?? 4);
+        $advanceDays = (int) ($settings['advance_days'] ?? 30);
+        $openingTime = $settings['opening_time'] ?? '07:00';
+        $closingTime = $settings['closing_time'] ?? '21:00';
+
+        $today = now()->startOfDay();
+        $reservationDate = \Illuminate\Support\Carbon::parse($date)->startOfDay();
+
+        if ($reservationDate->lt($today)) {
+            throw ValidationException::withMessages([
+                'reservation_date' => 'Past reservation dates are not allowed.',
+            ]);
+        }
+
+        if ($reservationDate->gt($today->copy()->addDays($advanceDays))) {
+            throw ValidationException::withMessages([
+                'reservation_date' => "Reservations can only be made up to {$advanceDays} days in advance.",
+            ]);
+        }
+
+        if ($end <= $start) {
+            throw ValidationException::withMessages([
+                'end_time' => 'The end time must be later than the start time.',
+            ]);
+        }
+
+        $duration = (strtotime($end) - strtotime($start)) / 3600;
+
+        if ($duration < $minDuration) {
+            throw ValidationException::withMessages([
+                'end_time' => "The minimum reservation duration is {$minDuration} hour(s).",
+            ]);
+        }
+
+        if ($duration > $maxDuration) {
+            throw ValidationException::withMessages([
+                'end_time' => "The maximum reservation duration is {$maxDuration} hour(s).",
+            ]);
+        }
+
+        if ($start < $openingTime || $end > $closingTime) {
+            throw ValidationException::withMessages([
+                'start_time' => "Reservations must be within operating hours ({$openingTime} - {$closingTime}).",
+            ]);
+        }
     }
 
     public function cancel(Reservation $reservation, int $actorId): Reservation {

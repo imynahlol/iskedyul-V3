@@ -12,7 +12,7 @@ class AuthorizedUserIdsTemplateExport implements FromCollection, WithHeadings, W
     public function collection(): Collection {
         return collect([
             [
-                '2026-12345-LQ-1',
+                '2026-00123-LQ-1',
                 'Student',
             ],
             [

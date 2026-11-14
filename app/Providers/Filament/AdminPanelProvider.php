@@ -40,14 +40,12 @@ class AdminPanelProvider extends PanelProvider {
             )
             ->pages([
                 Dashboard::class,
+                \App\Filament\Pages\SystemSettings::class,
             ])
-            ->discoverWidgets(
-                in: app_path('Filament/Widgets'),
-                for: 'App\\Filament\\Widgets'
-            )
             ->widgets([
                 \App\Filament\Widgets\AdminOverview::class,
                 \App\Filament\Widgets\RecentReservations::class,
+                \App\Filament\Widgets\RecentSystemLogs::class,
                 AccountWidget::class,
             ])
             ->middleware([

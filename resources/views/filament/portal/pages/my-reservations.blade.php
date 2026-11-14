@@ -1,12 +1,26 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div style="display: flex; flex-direction: column; gap: 26px;">
 
+        {{-- Page Header --}}
+        <div>
+            <h2 style="font-size: 26px; font-weight: 700; margin: 0;">
+                Reservation History
+            </h2>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 6px;">
+                View and manage your classroom reservations.
+            </p>
+        </div>
+
+        {{-- Edit Reservation Form --}}
         @if ($editingReservationId)
-            <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-5 flex items-center justify-between">
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px;">
                     <div>
-                        <h2 class="text-lg font-bold">Edit Reservation</h2>
-                        <p class="text-sm text-gray-500">
+                        <h3 style="font-size: 19px; font-weight: 700; color: #800000; margin: 0;">
+                            Edit Reservation
+                        </h3>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">
                             Update your reservation details.
                         </p>
                     </div>
@@ -20,32 +34,61 @@
                     </x-filament::button>
                 </div>
 
-                <form wire:submit="saveChanges" class="space-y-4">
-                    <div class="grid gap-4 md:grid-cols-2">
+                {{-- Reservation Guidelines --}}
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 15px 18px; margin-bottom: 22px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #9a3412; margin-bottom: 9px;">
+                        Reservation Guidelines
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 13px; color: #7c2d12;">
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Building</label>
-                            <select
-                                wire:model.live="building_id"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            >
+                            <strong>Minimum Duration:</strong>
+                            {{ $minDuration }} hour(s)
+                        </div>
+                        <div>
+                            <strong>Maximum Duration:</strong>
+                            {{ $maxDuration }} hour(s)
+                        </div>
+                        <div>
+                            <strong>Advance Booking:</strong>
+                            Up to {{ $advanceDays }} days
+                        </div>
+                        <div>
+                            <strong>Operating Hours:</strong>
+                            {{ \Carbon\Carbon::parse($openingTime)->format('h:i A') }}
+                            – 
+                            {{ \Carbon\Carbon::parse($closingTime)->format('h:i A') }}
+                        </div>
+                    </div>
+
+                    <p style="font-size: 12px; color: #9a3412; margin-top: 10px;">
+                        Your updated reservation must follow these guidelines and must not conflict with another reservation.
+                    </p>
+                </div>
+
+                <form wire:submit="saveChanges">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px;">
+
+                        {{-- Building --}}
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Building</label>
+                            <select wire:model.live="building_id"
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                                 <option value="">Select Building</option>
                                 @foreach ($buildings as $building)
-                                    <option value="{{ $building->id }}">
-                                        {{ $building->building_name }}
-                                    </option>
+                                    <option value="{{ $building->id }}">{{ $building->building_name }}</option>
                                 @endforeach
                             </select>
                             @error('building_id')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
 
+                        {{-- Room --}}
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Room</label>
-                            <select
-                                wire:model="room_id"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            >
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Room</label>
+                            <select wire:model="room_id"
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                                 <option value="">Select Room</option>
                                 @foreach ($rooms as $room)
                                     <option value="{{ $room->id }}">
@@ -55,62 +98,60 @@
                                 @endforeach
                             </select>
                             @error('room_id')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
 
+                        {{-- Date --}}
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Reservation Date</label>
-                            <input
-                                type="date"
-                                wire:model="reservation_date"
-                                min="{{ now()->addDay()->toDateString() }}"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            />
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Reservation Date</label>
+                            <input type="date" wire:model="reservation_date"
+                                min="{{ $earliestDate }}"
+                                max="{{ $latestDate }}"
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             @error('reservation_date')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
 
+                        {{-- Start Time --}}
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Start Time</label>
-                            <input
-                                type="time"
-                                wire:model="start_time"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            />
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Start Time</label>
+                            <input type="time" wire:model="start_time"
+                                min="{{ $openingTime }}"
+                                max="{{ $closingTime }}"
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             @error('start_time')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
 
+                        {{-- End Time --}}
                         <div>
-                            <label class="mb-1 block text-sm font-medium">End Time</label>
-                            <input
-                                type="time"
-                                wire:model="end_time"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            />
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">End Time</label>
+                            <input type="time" wire:model="end_time"
+                                min="{{ $openingTime }}"
+                                max="{{ $closingTime }}"
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             @error('end_time')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
 
+                        {{-- Purpose --}}
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Purpose</label>
-                            <input
-                                type="text"
-                                wire:model="purpose"
+                            <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Purpose</label>
+                            <input type="text" wire:model="purpose"
                                 placeholder="Enter reservation purpose"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"
-                            />
+                                style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             @error('purpose')
-                                <p class="mt-1 text-sm text-danger-600">{{ $message }}</p>
+                                <p style="font-size: 12px; color: #dc2626; margin-top: 5px;">{{ $message }}</p>
                             @enderror
                         </div>
+
                     </div>
 
-                    <div class="flex flex-wrap justify-end gap-2 pt-3">
+                    <div style="display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px;">
                         <x-filament::button
                             color="gray"
                             outlined
@@ -127,76 +168,84 @@
             </div>
         @endif
 
-        <div>
-            <h2 class="text-xl font-bold">Reservation History</h2>
-            <p class="text-sm text-gray-500">
-                View and manage your classroom reservations.
-            </p>
-        </div>
+        {{-- Reservation Table --}}
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
 
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 text-left dark:bg-gray-800">
+            <div style="padding: 20px 22px; border-bottom: 1px solid #e5e7eb;">
+                <h3 style="font-size: 18px; font-weight: 700; margin: 0;">
+                    My Reservations
+                </h3>
+                <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">
+                    Your submitted classroom reservation records.
+                </p>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; min-width: 1050px; border-collapse: collapse; text-align: left; font-size: 13px;">
+
+                    <thead style="background: #f9fafb; color: #4b5563;">
                         <tr>
-                            <th class="px-4 py-3">Reservation No.</th>
-                            <th class="px-4 py-3">Building</th>
-                            <th class="px-4 py-3">Room</th>
-                            <th class="px-4 py-3">Date</th>
-                            <th class="px-4 py-3">Schedule</th>
-                            <th class="px-4 py-3">Purpose</th>
-                            <th class="px-4 py-3">Status</th>
-                            <th class="px-4 py-3 text-center">Actions</th>
+                            <th style="padding: 15px;">Reservation No.</th>
+                            <th style="padding: 15px;">Building</th>
+                            <th style="padding: 15px;">Room</th>
+                            <th style="padding: 15px;">Date</th>
+                            <th style="padding: 15px;">Schedule</th>
+                            <th style="padding: 15px;">Purpose</th>
+                            <th style="padding: 15px;">Status</th>
+                            <th style="padding: 15px; text-align: center;">Actions</th>
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody>
                         @forelse ($reservations as $reservation)
-                            <tr>
-                                <td class="whitespace-nowrap px-4 py-3 font-medium">
+                            <tr style="border-top: 1px solid #e5e7eb;">
+
+                                <td style="padding: 15px; font-weight: 600; white-space: nowrap;">
                                     {{ $reservation->reservation_number }}
                                 </td>
 
-                                <td class="px-4 py-3">
+                                <td style="padding: 15px;">
                                     {{ $reservation->building->building_name ?? '—' }}
                                 </td>
 
-                                <td class="px-4 py-3">
+                                <td style="padding: 15px;">
                                     {{ $reservation->room->room_code ?? '—' }}
                                 </td>
 
-                                <td class="whitespace-nowrap px-4 py-3">
+                                <td style="padding: 15px; white-space: nowrap;">
                                     {{ $reservation->reservation_date->format('M d, Y') }}
                                 </td>
 
-                                <td class="whitespace-nowrap px-4 py-3">
+                                <td style="padding: 15px; white-space: nowrap;">
                                     {{ \Carbon\Carbon::parse($reservation->start_time)->format('h:i A') }}
                                     –
                                     {{ \Carbon\Carbon::parse($reservation->end_time)->format('h:i A') }}
                                 </td>
 
-                                <td class="px-4 py-3">
+                                <td style="padding: 15px; max-width: 200px;">
                                     {{ $reservation->purpose }}
                                 </td>
 
-                                <td class="px-4 py-3">
+                                {{-- Status --}}
+                                <td style="padding: 15px; white-space: nowrap;">
                                     @if ($reservation->status === 'Reserved')
-                                        <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                        <span style="display: inline-block; background: #dcfce7; color: #166534; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;">
                                             Reserved
                                         </span>
                                     @elseif ($reservation->status === 'Cancelled')
-                                        <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                                        <span style="display: inline-block; background: #fee2e2; color: #991b1b; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;">
                                             Cancelled
                                         </span>
                                     @else
-                                        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                                        <span style="display: inline-block; background: #f3f4f6; color: #374151; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;">
                                             {{ $reservation->status }}
                                         </span>
                                     @endif
                                 </td>
 
-                                <td class="px-4 py-3">
-                                    <div class="flex justify-center gap-2">
+                                {{-- Actions --}}
+                                <td style="padding: 15px;">
+                                    <div style="display: flex; justify-content: center; align-items: center; gap: 7px;">
                                         @if ($reservation->status === 'Reserved')
                                             @if ($reservation->reservation_date->toDateString() > now()->toDateString())
                                                 <x-filament::button
@@ -219,15 +268,21 @@
                                                 Cancel
                                             </x-filament::button>
                                         @else
-                                            <span class="text-xs text-gray-400">No actions</span>
+                                            <span style="font-size: 12px; color: #9ca3af;">No actions</span>
                                         @endif
                                     </div>
                                 </td>
+
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-4 py-10 text-center text-gray-500">
-                                    You don't have any reservations yet.
+                                <td colspan="8" style="padding: 42px 20px; text-align: center; color: #6b7280;">
+                                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">
+                                        No reservations yet
+                                    </div>
+                                    <p style="font-size: 13px;">
+                                        Your classroom reservations will appear here once submitted.
+                                    </p>
                                 </td>
                             </tr>
                         @endforelse
@@ -235,10 +290,11 @@
                 </table>
             </div>
 
-            <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+            {{-- Pagination --}}
+            <div style="padding: 14px 20px; border-top: 1px solid #e5e7eb;">
                 {{ $reservations->links() }}
             </div>
-        </div>
 
+        </div>
     </div>
 </x-filament-panels::page>

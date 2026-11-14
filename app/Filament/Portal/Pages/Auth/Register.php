@@ -9,7 +9,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -165,8 +164,7 @@ class Register extends BaseRegister {
                     ->revealable()
                     ->required()
                     ->rule(Password::min(8))
-                    ->same('passwordConfirmation')
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state)),
+                    ->same('passwordConfirmation'),
 
                 TextInput::make('passwordConfirmation')
                     ->label('Confirm Password')

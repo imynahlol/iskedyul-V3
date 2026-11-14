@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Buildings\Tables;
 
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -42,6 +43,14 @@ class BuildingsTable {
                         'Active' => 'Active',
                         'Inactive' => 'Inactive',
                     ]),
+            ])
+            ->headerActions([
+                Action::make('printBuildings')
+                    ->label('Print / Save PDF')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->url(fn (): string => route('admin.buildings.print'))
+                    ->openUrlInNewTab(),
             ])
             ->recordActions([
                 EditAction::make(),

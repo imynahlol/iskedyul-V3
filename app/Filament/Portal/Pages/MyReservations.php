@@ -5,6 +5,7 @@ namespace App\Filament\Portal\Pages;
 use App\Models\Building;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Models\SystemSetting;
 use App\Services\ReservationService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -23,20 +24,24 @@ class MyReservations extends Page {
     protected string $view = 'filament.portal.pages.my-reservations';
 
     public ?int $editingReservationId = null;
-
     public ?int $building_id = null;
-
     public ?int $room_id = null;
-
     public ?string $reservation_date = null;
-
     public ?string $start_time = null;
-
     public ?string $end_time = null;
-
     public ?string $purpose = null;
 
     public function getViewData(): array {
+        $settings = SystemSetting::whereIn('key', [
+            'advance_days',
+            'opening_time',
+            'closing_time',
+            'min_duration',
+            'max_duration',
+        ])->pluck('value', 'key');
+
+        $advanceDays = (int) ($settings['advance_days'] ?? 30);
+
         return [
             'reservations' => Reservation::with(['building', 'room'])
                 ->where('user_id', auth()->id())
@@ -52,6 +57,13 @@ class MyReservations extends Page {
                 ->where('status', 'Active')
                 ->orderBy('room_code')
                 ->get(),
+
+            'earliestDate' => now()->addDay()->toDateString(),
+            'latestDate' => now()->addDays($advanceDays)->toDateString(),
+            'minDuration' => (int) ($settings['min_duration'] ?? 1),
+            'maxDuration' => (int) ($settings['max_duration'] ?? 4),
+            'openingTime' => $settings['opening_time'] ?? '07:00',
+            'closingTime' => $settings['closing_time'] ?? '21:00',
         ];
     }
 
@@ -85,6 +97,12 @@ class MyReservations extends Page {
 
     public function saveChanges(): void {
         try {
+            $settings = SystemSetting::whereIn('key', [
+                'advance_days',
+            ])->pluck('value', 'key');
+
+            $advanceDays = (int) ($settings['advance_days'] ?? 30);
+
             $this->validate([
                 'building_id' => ['required', 'exists:buildings,id'],
                 'room_id' => [
@@ -93,7 +111,12 @@ class MyReservations extends Page {
                         ->where('building_id', $this->building_id)
                         ->where('status', 'Active'),
                 ],
-                'reservation_date' => ['required', 'date', 'after:today'],
+                'reservation_date' => [
+                    'required',
+                    'date',
+                    'after:today',
+                    'before_or_equal:' . now()->addDays($advanceDays)->toDateString(),
+                ],
                 'start_time' => ['required', 'date_format:H:i'],
                 'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
                 'purpose' => ['required', 'string', 'max:1000'],
@@ -138,6 +161,8 @@ class MyReservations extends Page {
                 ->send();
 
         } catch (Throwable $e) {
+            report($e);
+
             Notification::make()
                 ->title('Update failed')
                 ->body('The reservation could not be updated. Please try again.')
@@ -188,6 +213,8 @@ class MyReservations extends Page {
                 ->send();
 
         } catch (Throwable $e) {
+            report($e);
+
             Notification::make()
                 ->title('Cancellation failed')
                 ->body('Please try again.')

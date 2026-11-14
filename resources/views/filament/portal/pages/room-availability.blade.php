@@ -1,24 +1,43 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div style="display: flex; flex-direction: column; gap: 28px;">
 
+        {{-- Page Header --}}
         <div>
-            <h2 class="text-2xl font-bold">Find and Reserve a Classroom</h2>
-            <p class="text-sm text-gray-500">
+            <h2 style="font-size: 26px; font-weight: 700; margin: 0;">
+                Find and Reserve a Classroom
+            </h2>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 6px;">
                 Select your preferred building, room, date, and schedule.
             </p>
         </div>
 
-        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <h3 class="mb-5 text-lg font-bold text-[#800000]">Reservation Details</h3>
+        {{-- Reservation Form --}}
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <h3 style="font-size: 19px; font-weight: 700; color: #800000; margin: 0 0 12px;">
+                Reservation Details
+            </h3>
 
-            <form wire:submit="submitReservation" class="space-y-5">
+            {{-- Reservation Rules --}}
+            <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 14px; margin-bottom: 22px; font-size: 13px; color: #9a3412;">
+                <strong>Reservation Guidelines</strong>
+                <ul style="margin: 8px 0 0; padding-left: 20px;">
+                    <li>Minimum duration: {{ $minDuration }} hour(s)</li>
+                    <li>Maximum duration: {{ $maxDuration }} hour(s)</li>
+                    <li>Advance booking: Up to {{ $advanceDays }} days</li>
+                    <li>Operating hours: {{ \Carbon\Carbon::parse($openingTime)->format('h:i A') }} – {{ \Carbon\Carbon::parse($closingTime)->format('h:i A') }}</li>
+                </ul>
+            </div>
 
-                <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <form wire:submit="submitReservation">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px;">
 
+                    {{-- Building --}}
                     <div>
-                        <label class="mb-2 block text-sm font-semibold">Building</label>
+                        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            Building
+                        </label>
                         <select wire:model.live="building_id"
-                            class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             <option value="">Select a building</option>
                             @foreach ($buildings as $building)
                                 <option value="{{ $building->id }}">
@@ -28,104 +47,144 @@
                         </select>
                     </div>
 
+                    {{-- Room --}}
                     <div>
-                        <label class="mb-2 block text-sm font-semibold">Room</label>
+                        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            Room
+                        </label>
                         <select wire:model="room_id"
                             @disabled(!$building_id)
-                            class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                             <option value="">Select a room</option>
                             @foreach ($rooms as $room)
-                                <option value="{{ $room->id }}">
+                                @php
+                                    $isReserved = in_array($room->id, $reservedRoomIds);
+                                @endphp
+
+                                <option value="{{ $room->id }}" @disabled($isReserved)>
                                     {{ $room->room_code }}
                                     {{ $room->room_name ? ' - ' . $room->room_name : '' }}
+                                    {{ $isReserved ? ' - OCCUPIED' : '' }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
 
+                    {{-- Reservation Date --}}
                     <div>
-                        <label class="mb-2 block text-sm font-semibold">Reservation Date</label>
+                        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            Reservation Date
+                        </label>
                         <input type="date"
                             wire:model.live="reservation_date"
-                            min="{{ now()->toDateString() }}"
-                            class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            min="{{ $earliestDate }}"
+                            max="{{ $latestDate }}"
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                     </div>
 
+                    {{-- Start Time --}}
                     <div>
-                        <label class="mb-2 block text-sm font-semibold">Start Time</label>
+                        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            Start Time
+                        </label>
                         <input type="time"
                             wire:model.live="start_time"
-                            class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            min="{{ $openingTime }}"
+                            max="{{ $closingTime }}"
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                     </div>
 
+                    {{-- End Time --}}
                     <div>
-                        <label class="mb-2 block text-sm font-semibold">End Time</label>
+                        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                            End Time
+                        </label>
                         <input type="time"
                             wire:model.live="end_time"
-                            class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            min="{{ $openingTime }}"
+                            max="{{ $closingTime }}"
+                            style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827;">
                     </div>
 
                 </div>
 
-                <div>
-                    <label class="mb-2 block text-sm font-semibold">Purpose</label>
+                {{-- Purpose --}}
+                <div style="margin-top: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">
+                        Purpose
+                    </label>
                     <textarea wire:model="purpose"
                         rows="3"
                         placeholder="Explain the purpose of your classroom reservation..."
-                        class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"></textarea>
+                        style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: white; color: #111827; resize: vertical;"></textarea>
                 </div>
 
+                {{-- Availability Notice --}}
                 @if ($reservation_date && $start_time && $end_time && $end_time > $start_time)
-                    <div class="rounded-lg bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                    <div style="margin-top: 20px; padding: 14px; border-radius: 8px; background: #eff6ff; color: #1e40af; font-size: 14px;">
                         <strong>Schedule availability:</strong>
                         Rooms already reserved during this time are marked below.
                     </div>
                 @endif
 
-                <button type="submit"
-                    wire:loading.attr="disabled"
-                    class="rounded-lg bg-[#800000] px-6 py-3 text-sm font-semibold text-white hover:bg-[#660000] disabled:opacity-50">
-                    <span wire:loading.remove wire:target="submitReservation">
-                        Submit Reservation
-                    </span>
-                    <span wire:loading wire:target="submitReservation">
-                        Processing...
-                    </span>
-                </button>
-
+                {{-- Submit Button --}}
+                <div style="margin-top: 24px;">
+                    <button type="submit"
+                        wire:loading.attr="disabled"
+                        style="background: #800000; color: white; padding: 13px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer;">
+                        <span wire:loading.remove wire:target="submitReservation">
+                            Submit Reservation
+                        </span>
+                        <span wire:loading wire:target="submitReservation">
+                            Processing...
+                        </span>
+                    </button>
+                </div>
             </form>
         </div>
 
+        {{-- Campus Room Directory --}}
         <div>
-            <h3 class="mb-4 text-lg font-bold">Campus Room Directory</h3>
+            <div style="margin-bottom: 18px;">
+                <h3 style="font-size: 20px; font-weight: 700; margin: 0;">
+                    Campus Room Directory
+                </h3>
+                <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">
+                    Browse classrooms by building and check their current availability.
+                </p>
+            </div>
 
             @foreach ($buildings as $building)
-                <section class="mb-6 space-y-3">
-                    <h4 class="font-bold">{{ $building->building_name }}</h4>
+                <section style="margin-bottom: 26px;">
+                    <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">
+                        {{ $building->building_name }}
+                    </h4>
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
                         @foreach ($building->rooms as $room)
                             @php
                                 $isReserved = in_array($room->id, $reservedRoomIds);
                                 $isActive = $room->status === 'Active';
                             @endphp
 
-                            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-bold">{{ $room->room_code }}</span>
+                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                    <span style="font-size: 15px; font-weight: 700;">
+                                        {{ $room->room_code }}
+                                    </span>
 
                                     @if (!$isActive)
-                                        <span class="text-xs font-semibold text-red-600">Inactive</span>
+                                        <span style="font-size: 12px; font-weight: 700; color: #dc2626;">Inactive</span>
                                     @elseif ($isReserved)
-                                        <span class="text-xs font-semibold text-red-600">Occupied</span>
-                                    @elseif ($reservation_date && $start_time && $end_time)
-                                        <span class="text-xs font-semibold text-green-600">Available</span>
+                                        <span style="font-size: 12px; font-weight: 700; color: #dc2626;">Occupied</span>
+                                    @elseif ($reservation_date && $start_time && $end_time && $end_time > $start_time)
+                                        <span style="font-size: 12px; font-weight: 700; color: #16a34a;">Available</span>
                                     @else
-                                        <span class="text-xs font-semibold text-gray-500">Select a schedule</span>
+                                        <span style="font-size: 12px; font-weight: 600; color: #6b7280;">Select a schedule</span>
                                     @endif
                                 </div>
 
-                                <p class="mt-2 text-sm text-gray-500">
+                                <p style="font-size: 13px; color: #6b7280; margin: 8px 0 0;">
                                     {{ $room->room_name ?: 'Classroom' }}
                                 </p>
                             </div>
